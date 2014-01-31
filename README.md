@@ -5,6 +5,8 @@ Script is a fork of django's dumpdata, but dumps data in chunks to avoid MemoryE
 
 Django-dumpdata-chunks is `BSD licensed` ( http://www.linfo.org/bsdlicense.html ).
 
+Please let me know if you need an improvement.
+
 Example usage:
 
 1) Dump data into many files:
