@@ -13,7 +13,7 @@ Example usage:
 
 mkdir some-folder
 
-./manage.py dumpdata_chunks --output-folder=./some-folder --max-records-per-chunk=100000
+./manage.py dumpdata_chunks your-app-name --output-folder=./some-folder --max-records-per-chunk=100000
 
 2) Load data from the folder:
 
