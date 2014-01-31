@@ -8,6 +8,10 @@ from optparse import make_option
 
 class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
+        make_option('--output-folder', default='.', dest='output_folder', type='string',
+            help='Specifies the output folder where the data should be dumped, e.g. ./dumped-data. Please make sure this folder exists.'),
+        make_option('--max-records-per-chunk', default=100000, dest='max_records_per_chunk', type='int',
+            help='Specifies the number of records per each .json dumpfile. By default --max-records-per-chunk=100000.'),
         make_option('--format', default='json', dest='format',
             help='Specifies the output serialization format for fixtures.'),
         make_option('--indent', default=None, dest='indent', type='int',
@@ -30,6 +34,10 @@ class Command(BaseCommand):
     def handle(self, *app_labels, **options):
         from django.db.models import get_app, get_apps, get_model
 
+        output_folder = options.get('output_folder')
+        print "Output folder:", output_folder
+        print "NOTE: See --output-folder option"
+        max_records_per_chunk = options.get('max_records_per_chunk')
         format = options.get('format')
         indent = options.get('indent')
         using = options.get('database')
@@ -99,22 +107,29 @@ class Command(BaseCommand):
 
         # Now collate the objects to be serialized.
         objects = []
+        model_count = 1000
+        chunk_count = 1000
         for model in sort_dependencies(app_list.items()):
+            model_count += 1 
             if model in excluded_models:
                 continue
             if not model._meta.proxy and router.allow_syncdb(using, model):
                 if use_base_manager:
                     objects.extend(model._base_manager.using(using).all())
                 else:
-                    objects.extend(model._default_manager.using(using).all())
-
-        try:
-            return serializers.serialize(format, objects, indent=indent,
-                        use_natural_keys=use_natural_keys)
-        except Exception, e:
-            if show_traceback:
-                raise
-            raise CommandError("Unable to serialize database: %s" % e)
+                    items_total = model._default_manager.using(using).count()
+                    chunks_total = (items_total / max_records_per_chunk) +1
+                    for chunk_num in range(0, chunks_total):
+                        output_objects = model._default_manager.using(using).all()[chunk_num*max_records_per_chunk:(chunk_num+1)*max_records_per_chunk]
+                        if output_objects:
+                            chunk_count += 1 
+                            dump_file_name = output_folder + "/%d_%d.json" % (model_count, chunk_count)
+                            print "Dumping file: %s [%d]" % (dump_file_name, chunks_total)
+                            output = serializers.serialize(format, output_objects, indent=indent,
+                                        use_natural_keys=use_natural_keys)
+                            with open(dump_file_name, "w") as dumpfile:
+                                dumpfile.write(output)
+        return ''
 
 def sort_dependencies(app_list):
     """Sort a list of app,modellist pairs into a single list of models.
